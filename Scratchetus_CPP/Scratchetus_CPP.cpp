@@ -1,5 +1,4 @@
-// Scratchetus_CPP.cpp : Defines the entry point for the application.
-//
+// TODO: Get into alpha stage, then URGENT CLEANUP
 
 #include "stdafx.h"
 #include "Scratchetus_CPP.h"
@@ -8,6 +7,7 @@
 #include <string>
 #include <commdlg.h>
 #include <vector>
+#include <windowsx.h>
 
 #define MAX_LOADSTRING 100
 #define LEFTSIDE_BRIGHTNESS 245
@@ -50,6 +50,9 @@ BuildInfo temp;
 
 std::vector<BuildInfo> builds;
 
+POINT point;
+LPCWSTR lpcwstr_buffer;
+short int selected_build = NULL;
 
 bool FileExists(LPCWSTR fileName)
 {
@@ -79,7 +82,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		switch (wmId)
 		{
 			case ID_BUTTON:
-				ShellExecute(NULL, L"open", L".\\res\\squeak.exe", L"Scratch21Mar05i.image", NULL, SW_SHOWDEFAULT);
+				lpcwstr_buffer = builds[selected_build].name.c_str();
+				ShellExecute(NULL, L"open", L".\\res\\squeak.exe", lpcwstr_buffer, NULL, SW_SHOWDEFAULT);
 				break;
 			case IDM_ADDBUILD:
                 ZeroMemory(&ofn, sizeof(ofn));
@@ -141,7 +145,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         // fill the rectangle with the grey brush
         FillRect(hdc, &leftsiderect, hBrush);
 
-		for(size_t i = 0; i < builds.size(); ++i) {
+		for(size_t i = 0; i < builds.size(); i++) {
 			buildrect.left = 0;
 			buildrect.top = i * 64;
 			buildrect.right = leftsiderect.right; // Half the window's width
@@ -149,10 +153,30 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 			// Fill the rectangle with the grey brush
 			FillRect(hdc, &buildrect, hBrush2);
+			DrawTextW(hdc, (builds[i].name).c_str(), -1 /*null terminated*/, &buildrect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 		}
 		EndPaint(hWnd, &ps);
 		break;
+    case WM_LBUTTONDOWN:
+		point.x = GET_X_LPARAM(lParam);
+		point.y = GET_Y_LPARAM(lParam);
 
+		for(size_t i = 0; i < builds.size(); ++i) 
+		{
+			RECT buildrect;
+			buildrect.left = 0;
+			buildrect.top = i * 64;
+			buildrect.right = leftsiderect.right; // Half the window's width
+			buildrect.bottom = 64 + (i * 64); // Fixed height
+
+			if(PtInRect(&buildrect, point))
+			{
+				selected_build = i;
+				lpcwstr_buffer = builds[i].name.c_str();
+				break;
+			}
+		}
+		break;
 	case WM_CREATE:
 	{
 		// Create a button on the right side of the window
