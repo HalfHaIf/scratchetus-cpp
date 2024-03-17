@@ -3,10 +3,14 @@
 
 #include "stdafx.h"
 #include "Scratchetus_CPP.h"
+
 #include <shellapi.h>
+#include <string>
+#include <commdlg.h>
+#include <vector>
 
 #define MAX_LOADSTRING 100
-
+#define LEFTSIDE_BRIGHTNESS 245
 #define ID_BUTTON 1001
 
 // Global Variables:
@@ -19,18 +23,46 @@ ATOM				MyRegisterClass(HINSTANCE hInstance);
 BOOL				InitInstance(HINSTANCE, int);
 LRESULT CALLBACK	WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK	About(HWND, UINT, WPARAM, LPARAM);
+HWND				LaunchSqueakButton;
+
+//declaring stuff used in the function
 HBRUSH				hBrush;
+HBRUSH				hBrush2;
 RECT                windowrect;
-//
-//  FUNCTION: WndProc(HWND, UINT, WPARAM, LPARAM)
-//
-//  PURPOSE:  Processes messages for the main window.
-//
-//  WM_COMMAND	- process the application menu
-//  WM_PAINT	- Paint the main window
-//  WM_DESTROY	- post a quit message and return
-//
-//
+RECT				leftsiderect;
+RECT				buildrect;
+
+// "Add Build" dialog stuff
+wchar_t* filename;
+
+wchar_t szFile[260];
+OPENFILENAME ofn;
+
+
+// struct to hold build name and path
+struct BuildInfo
+{
+    std::wstring name;
+    std::wstring path;
+};
+
+BuildInfo temp;
+
+std::vector<BuildInfo> builds;
+
+
+bool FileExists(LPCWSTR fileName)
+{
+    DWORD fileAttr;
+
+    fileAttr = GetFileAttributes(fileName);
+    if (0xFFFFFFFF == fileAttr && GetLastError() == ERROR_FILE_NOT_FOUND)
+    {
+        return false;
+    }
+    return true;
+}
+
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	int wmId, wmEvent;
@@ -47,7 +79,37 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		switch (wmId)
 		{
 			case ID_BUTTON:
-				ShellExecute(NULL, L"open", L"sample.exe", L"Scratch21Mar05i.image", NULL, SW_SHOWDEFAULT);
+				ShellExecute(NULL, L"open", L".\\res\\squeak.exe", L"Scratch21Mar05i.image", NULL, SW_SHOWDEFAULT);
+				break;
+			case IDM_ADDBUILD:
+                ZeroMemory(&ofn, sizeof(ofn));
+                ofn.lStructSize = sizeof(ofn);
+                ofn.hwndOwner = hWnd;
+                ofn.lpstrFile = szFile;
+                ofn.lpstrFile[0] = L'\0';
+                ofn.nMaxFile = sizeof(szFile);
+                ofn.lpstrFilter = L"All\0*.*\0Text\0*.TXT\0";
+                ofn.nFilterIndex = 1;
+                ofn.lpstrFileTitle = NULL;
+                ofn.nMaxFileTitle = 0;
+                ofn.lpstrInitialDir = NULL;
+                ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
+
+				
+                if(GetOpenFileName(&ofn) == TRUE)
+                {
+					temp.path = ofn.lpstrFile;
+					
+					filename = wcsrchr(ofn.lpstrFile, L'\\');
+					if(filename != NULL) {
+						temp.name = filename + 1;
+					}
+
+					builds.push_back(temp);
+                }
+
+				InvalidateRect(hWnd, NULL, TRUE);
+
 				break;
 			case IDM_ABOUT:
 				DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
@@ -60,24 +122,42 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 		}
 		break;
 
+	case WM_SIZE:
+		GetClientRect(hWnd, &windowrect);
+		LaunchSqueakButton = GetDlgItem(hWnd, ID_BUTTON);
+        // Set the new position of the button
+        SetWindowPos(LaunchSqueakButton, NULL, (int)windowrect.right * 0.65, windowrect.bottom * 0.8, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
+        InvalidateRect(hWnd, NULL, TRUE); // redraw window, window size has changed
+        break;
 	case WM_PAINT:
 		hdc = BeginPaint(hWnd, &ps);
 		// create a grey brush
-        hBrush = CreateSolidBrush(RGB(192, 192, 192));
-        windowrect.right >>= 1; // width of the rectangle
+        hBrush = CreateSolidBrush(RGB(LEFTSIDE_BRIGHTNESS, LEFTSIDE_BRIGHTNESS, LEFTSIDE_BRIGHTNESS));
+		hBrush2 = CreateSolidBrush(RGB(LEFTSIDE_BRIGHTNESS - 32, LEFTSIDE_BRIGHTNESS - 32, LEFTSIDE_BRIGHTNESS - 32));
+		
+		leftsiderect = windowrect;
+		leftsiderect.right >>= 1;
 
         // fill the rectangle with the grey brush
-        FillRect(hdc, &windowrect, hBrush);
+        FillRect(hdc, &leftsiderect, hBrush);
 
+		for(size_t i = 0; i < builds.size(); ++i) {
+			buildrect.left = 0;
+			buildrect.top = i * 64;
+			buildrect.right = leftsiderect.right; // Half the window's width
+			buildrect.bottom = 64 + (i * 64); // Fixed height
+
+			// Fill the rectangle with the grey brush
+			FillRect(hdc, &buildrect, hBrush2);
+		}
 		EndPaint(hWnd, &ps);
 		break;
 
 	case WM_CREATE:
 	{
-		GetClientRect(hWnd, &windowrect);
 		// Create a button on the right side of the window
-		CreateWindow(L"BUTTON", L"Click me", WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON, 
-		500, 250, 100, 30, hWnd, (HMENU)ID_BUTTON, NULL, NULL);
+		CreateWindow(L"BUTTON", L"Launch Squeak", WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON, 
+		windowrect.right << 2, 250, 125, 30, hWnd, (HMENU)ID_BUTTON, NULL, NULL);
 	}
 	break;
 
@@ -150,19 +230,6 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
 }
 
 
-//
-//  FUNCTION: MyRegisterClass()
-//
-//  PURPOSE: Registers the window class.
-//
-//  COMMENTS:
-//
-//    This function and its usage are only necessary if you want this code
-//    to be compatible with Win32 systems prior to the 'RegisterClassEx'
-//    function that was added to Windows 95. It is important to call this function
-//    so that the application will get 'well formed' small icons associated
-//    with it.
-//
 ATOM MyRegisterClass(HINSTANCE hInstance)
 {
 	WNDCLASSEX wcex;
@@ -184,16 +251,6 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
 	return RegisterClassEx(&wcex);
 }
 
-//
-//   FUNCTION: InitInstance(HINSTANCE, int)
-//
-//   PURPOSE: Saves instance handle and creates main window
-//
-//   COMMENTS:
-//
-//        In this function, we save the instance handle in a global variable and
-//        create and display the main program window.
-//
 BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
    HWND hWnd;

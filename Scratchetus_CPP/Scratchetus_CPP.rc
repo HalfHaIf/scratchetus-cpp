@@ -37,6 +37,7 @@ IDC_SCRATCHETUS_CPP MENU
 BEGIN
     POPUP "&File"
     BEGIN
+		MENUITEM "Add Build",			 IDM_ADDBUILD
         MENUITEM "E&xit",                IDM_EXIT
     END
     POPUP "&Help"

@@ -10,6 +10,7 @@
 #define IDD_ABOUTBOX			103
 #define IDM_ABOUT				104
 #define IDM_EXIT				105
+#define IDM_ADDBUILD			106
 #define IDI_SCRATCHETUS_CPP			107
 #define IDI_SMALL				108
 #define IDC_SCRATCHETUS_CPP			109
