@@ -2,14 +2,14 @@
 
 #include "Scratchetus_CPP.h"
 
-
 #include "fileexists.h"
 
 #include "draw.h"
 
+#include "font.h" 
 
 //TODO: Get these includes into stdafx.h
-#include <shellapi.h>
+#include <sstream>
 
 #include <string>
 
@@ -65,8 +65,10 @@ POINT mousecoords;
 // Buffer mainly used for converting wstrings to LPCWSTR
 LPCWSTR lpcwstr_buffer;
 
+LPWSTR lpwstr_buffer;
+
 //Stores which build we've selected
-short int selected_build = NULL;
+short int selected_build = 65535;
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -87,7 +89,15 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 			case ID_BUTTON:
 				//Run squeak and pass the name of the currently selected build to it
 				lpcwstr_buffer = builds[selected_build].name.c_str();
-				ShellExecute(NULL, L"open", L".\\res\\squeak.exe", lpcwstr_buffer, NULL, SW_SHOWDEFAULT);
+				if (selected_build != 65535) {
+					//We have selected a build, let's open it!
+					ShellExecute(NULL, L"open", L".\\squeak.exe", lpcwstr_buffer, NULL, SW_SHOWDEFAULT);
+				}
+				else
+				{
+					//No build selected, which one are we supposed to open?
+					MessageBox(NULL, L"No build selected! Select a build first.", L"Info", MB_OK | MB_ICONINFORMATION);
+				}
 				break;
 			case IDM_ADDBUILD:
                 ZeroMemory(&ofn, sizeof(ofn));
@@ -103,7 +113,6 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                 ofn.lpstrInitialDir = NULL;
                 ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
 
-				
                 if(GetOpenFileName(&ofn) == TRUE)
                 {
 					temp.path = ofn.lpstrFile;
@@ -115,6 +124,17 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 					
 					builds.push_back(temp);
                 }
+				
+				WritePrivateProfileString(L"General", L"numbuilds", builds.size(), L".\\scrape.ini");
+
+				for (int i = 0; i < builds.size(); i++)
+				{
+					std::wstringstream wss;
+					wss << L"Build" << i;
+					std::wstring section = wss.str();
+					WritePrivateProfileString(section.c_str(), L"name", builds[i].name.c_str(), L".\\scrape.ini");
+					WritePrivateProfileString(section.c_str(), L"path", builds[i].path.c_str(), L".\\scrape.ini");
+				}
 
 				InvalidateRect(hwnd, NULL, TRUE);
 
@@ -163,6 +183,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 				break;
 			}
 		}
+		InvalidateRect(hwnd, NULL, TRUE); // need to redraw the window, selected build has probably changed
 		break;
 	case WM_CREATE:
 	{
@@ -204,7 +225,7 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 
 int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdLine, int nCmdShow)
 {
-   LPCWSTR CLASS_NAME = L"Sample Window Class";
+   LPCWSTR CLASS_NAME = L"Main Window Class";
 
    WNDCLASS wc = { };
 
@@ -219,11 +240,16 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCm
    }
 
    HMENU hMenuBar = LoadMenu(hInst, MAKEINTRESOURCE(IDC_SCRATCHETUS_CPP));
-   HWND hwnd = CreateWindow(CLASS_NAME, L"Visual C++ Test", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, 600, 400, NULL, hMenuBar, hInst, NULL);
+   HWND hwnd = CreateWindow(CLASS_NAME, L"Scrape Launcher", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, 600, 400, NULL, hMenuBar, hInst, NULL);
 
    if (hwnd == NULL)
    {
        MessageBox(NULL, L"Window creation failed!\nError 0x0000001", L"Error!", MB_OK | MB_ICONERROR);
+       exit(EXIT_FAILURE);
+   }
+   if (!FileExists(L"squeak.exe"))
+   {
+       MessageBox(NULL, L"'squeak.exe' not found!\nError 0x0000002", L"Error!", MB_OK | MB_ICONERROR);
        exit(EXIT_FAILURE);
    }
 

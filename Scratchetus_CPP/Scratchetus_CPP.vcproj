@@ -179,6 +179,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\font.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\Scratchetus_CPP.cpp"
 				>
 			</File>
@@ -214,6 +218,10 @@
 			</File>
 			<File
 				RelativePath=".\fileexists.h"
+				>
+			</File>
+			<File
+				RelativePath=".\font.h"
 				>
 			</File>
 			<File
