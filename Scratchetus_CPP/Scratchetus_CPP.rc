@@ -46,7 +46,7 @@ BEGIN
     POPUP "&File"
     BEGIN
         MENUITEM "Add Build",                   IDM_ADDBUILD
-        MENUITEM "Remove Build",                ID_FILE_REMOVE
+        MENUITEM "Remove Build",                IDM_REMOVEBUILD
         MENUITEM "E&xit",                       IDM_EXIT
     END
     POPUP "View"

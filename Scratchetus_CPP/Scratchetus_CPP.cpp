@@ -86,6 +86,8 @@ short int theme;
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
+	static bool DeleteMode;
+
 	int wmId, wmEvent;
 	PAINTSTRUCT ps;
 	HDC hdc;
@@ -159,6 +161,10 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 				InvalidateRect(hwnd, NULL, TRUE);
 
 				break;
+			case IDM_REMOVEBUILD:
+				//This boolean makes it so that, when you click on a build, it will be removed from the list
+				DeleteMode = true;
+				break;
 			case IDM_ABOUT:
 				DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hwnd, About);
 				break;
@@ -231,9 +237,17 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 			buildrect.bottom = 64 + (i * 64); // Fixed height
 
 			if(PtInRect(&buildrect, mousecoords))
-			{
-				selected_build = i;
-				lpcwstr_buffer = builds[i].name.c_str();
+			{	
+				if (!DeleteMode) {
+					selected_build = i;
+					lpcwstr_buffer = builds[i].name.c_str();				
+				}
+				else
+				{
+					//Can't just shove an integer into the vector erase function for some reason
+					builds.erase(builds.begin() + i);
+					DeleteMode = false;
+				}
 				break;
 			}
 		}
