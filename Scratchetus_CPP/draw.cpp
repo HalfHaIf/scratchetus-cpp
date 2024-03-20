@@ -4,6 +4,10 @@
 
 #include <vector>
 
+
+#define LIGHT_MODE 1
+#define DARK_MODE 2
+
 /// struct to hold build name and path
 struct BuildInfo
 {
@@ -26,13 +30,26 @@ RECT				buildrect;
 
 extern short int selected_build;
 
+extern short int theme;
+
 void draw(HDC hdc, HWND hwnd, PAINTSTRUCT ps)
 {
 	hdc = BeginPaint(hwnd, &ps);
-	RightSideBrush = CreateSolidBrush(RGB(255, 255, 255));
-    LeftSideBrush = CreateSolidBrush(RGB(LEFTSIDE_BRIGHTNESS, LEFTSIDE_BRIGHTNESS, LEFTSIDE_BRIGHTNESS));
-	BuildBrush = CreateSolidBrush(RGB(LEFTSIDE_BRIGHTNESS - 32, LEFTSIDE_BRIGHTNESS - 32, LEFTSIDE_BRIGHTNESS - 32));
-	SelectedBuildBrush = CreateSolidBrush(RGB(LEFTSIDE_BRIGHTNESS - 48, LEFTSIDE_BRIGHTNESS - 48, LEFTSIDE_BRIGHTNESS - 48));	
+	if (theme == DARK_MODE) {
+		//dark mode
+		RightSideBrush = CreateSolidBrush(RGB(51, 51, 67));
+		LeftSideBrush = CreateSolidBrush(RGB(44, 44, 58));
+		BuildBrush = CreateSolidBrush(RGB(47, 47, 63));
+		SelectedBuildBrush = CreateSolidBrush(RGB(35, 35, 46));	
+	}
+	if (theme == LIGHT_MODE) {
+		//light mode
+		RightSideBrush = CreateSolidBrush(RGB(255, 255, 255));
+		LeftSideBrush = CreateSolidBrush(RGB(LEFTSIDE_BRIGHTNESS, LEFTSIDE_BRIGHTNESS, LEFTSIDE_BRIGHTNESS));
+		BuildBrush = CreateSolidBrush(RGB(LEFTSIDE_BRIGHTNESS - 32, LEFTSIDE_BRIGHTNESS - 32, LEFTSIDE_BRIGHTNESS - 32));
+		SelectedBuildBrush = CreateSolidBrush(RGB(LEFTSIDE_BRIGHTNESS - 48, LEFTSIDE_BRIGHTNESS - 48, LEFTSIDE_BRIGHTNESS - 48));
+	}
+
 	leftsiderect = windowrect;
 	leftsiderect.right >>= 1;
 

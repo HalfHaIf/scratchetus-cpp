@@ -7,7 +7,6 @@
 #include "draw.h"
 
 #include "font.h" 
-
 //TODO: Get these includes into stdafx.h
 #include <sstream>
 
@@ -18,6 +17,9 @@
 #include <vector>
 
 #include <windowsx.h>
+
+#define LIGHT_MODE 1
+#define DARK_MODE 2
 
 /// struct to hold build name and path
 struct BuildInfo
@@ -32,6 +34,8 @@ struct BuildInfo
 HINSTANCE hInst;								// current instance
 TCHAR szTitle[MAX_LOADSTRING];					// The title bar text
 TCHAR szWindowClass[MAX_LOADSTRING];			// the main window class name
+
+HMENU hMenuBar;
 
 // Forward declarations of functions included in this code module
 BOOL				InitInstance(HINSTANCE, int);
@@ -67,8 +71,18 @@ LPCWSTR lpcwstr_buffer;
 
 LPWSTR lpwstr_buffer;
 
+std::wstring wstring_buffer;
+
+std::wstringstream wss_buffer;
+
+int int_buffer;
+
 //Stores which build we've selected
 short int selected_build = 65535;
+
+//Stores which theme we're using
+short int theme;
+
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -125,13 +139,19 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 					builds.push_back(temp);
                 }
 				
-				WritePrivateProfileString(L"General", L"numbuilds", builds.size(), L".\\scrape.ini");
+				wss_buffer.str(L"");
+				wss_buffer.clear();
+
+				//Write how many builds have been added (will be used for reading the INI later)
+				wss_buffer << builds.size();
+				WritePrivateProfileString(L"General", L"numbuilds", wss_buffer.str().c_str(), L".\\scrape.ini");
 
 				for (int i = 0; i < builds.size(); i++)
 				{
-					std::wstringstream wss;
-					wss << L"Build" << i;
-					std::wstring section = wss.str();
+					wss_buffer.str(L"");
+					wss_buffer.clear();
+					wss_buffer << L"Build" << i;
+					std::wstring section = wss_buffer.str();
 					WritePrivateProfileString(section.c_str(), L"name", builds[i].name.c_str(), L".\\scrape.ini");
 					WritePrivateProfileString(section.c_str(), L"path", builds[i].path.c_str(), L".\\scrape.ini");
 				}
@@ -144,6 +164,40 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 				break;
 			case IDM_EXIT:
 				DestroyWindow(hwnd);
+				break;
+			case ID_THEME_LIGHTMODE:
+				//Uncheck dark mode
+				CheckMenuItem(hMenuBar, ID_THEME_DARKMODE, MF_BYCOMMAND | MF_UNCHECKED);
+				//Check light mode
+				CheckMenuItem(hMenuBar, ID_THEME_LIGHTMODE, MF_BYCOMMAND | MF_CHECKED);
+				//Set theme to light mode
+				theme = LIGHT_MODE;
+				//Theme has probably changed, so:
+
+				//Redraw window
+				InvalidateRect(hwnd, NULL, TRUE); 
+				//Save theme to scrape.ini
+				wss_buffer.str(L"");
+				wss_buffer.clear();
+				wss_buffer << theme;
+				WritePrivateProfileString(L"General", L"theme", wss_buffer.str().c_str(), L".\\scrape.ini");
+				break;
+			case ID_THEME_DARKMODE:
+				//Uncheck light mode
+				CheckMenuItem(hMenuBar, ID_THEME_LIGHTMODE, MF_BYCOMMAND | MF_UNCHECKED);
+				//Check dark mode
+				CheckMenuItem(hMenuBar, ID_THEME_DARKMODE, MF_BYCOMMAND | MF_CHECKED);
+				//Set theme to light mode
+				theme = DARK_MODE;
+				//Theme has probably changed, so:
+
+				//Redraw window
+				InvalidateRect(hwnd, NULL, TRUE); 
+				//Save theme to scrape.ini
+				wss_buffer.str(L"");
+				wss_buffer.clear();
+				wss_buffer << theme;
+				WritePrivateProfileString(L"General", L"theme", wss_buffer.str().c_str(), L".\\scrape.ini");
 				break;
 			default:
 				return DefWindowProc(hwnd, message, wParam, lParam);
@@ -239,7 +293,60 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCm
        exit(EXIT_FAILURE);
    }
 
-   HMENU hMenuBar = LoadMenu(hInst, MAKEINTRESOURCE(IDC_SCRATCHETUS_CPP));
+
+
+
+   //Load stuff from INI file
+
+   ///Load theme from ini file
+   const int bufferSize = 256;
+   WCHAR lpwstr_buffer[bufferSize];
+   GetPrivateProfileString(L"General", L"theme", L"1", lpwstr_buffer, bufferSize, L".\\scrape.ini");
+
+   ///Copy to theme variable
+   wss_buffer.str(L"");
+   wss_buffer.clear();
+
+   wss_buffer << lpwstr_buffer;
+   wss_buffer >> theme;
+
+   ///Get the number of builds we need to load from the ini file
+   GetPrivateProfileString(L"General", L"numbuilds", L"1", lpwstr_buffer, bufferSize, L".\\scrape.ini");
+   
+   ///Copy to a buffer
+   wss_buffer.str(L"");
+   wss_buffer.clear();
+
+   wss_buffer << lpwstr_buffer;
+   wss_buffer >> int_buffer;	
+
+   //Load all of the build names and paths from the INI file
+   for (int i = 0; i < int_buffer; i++) {
+	   //Clear data of temp
+	   temp.name = L"";
+	   temp.path = L"";
+
+	   //Clear data of wss_buffer
+	   wss_buffer.str(L"");
+	   wss_buffer.clear();
+	   
+
+	   wss_buffer << "Build" << i;
+	   wss_buffer >> wstring_buffer;
+	   
+	   //Load the "name" and "path" keys into the temp variable
+	   GetPrivateProfileString(wstring_buffer.c_str(), L"name", NULL, lpwstr_buffer, bufferSize, L".\\scrape.ini");	
+	   temp.name = lpwstr_buffer;
+	   GetPrivateProfileString(wstring_buffer.c_str(), L"path", NULL, lpwstr_buffer, bufferSize, L".\\scrape.ini");
+	   temp.path = lpwstr_buffer;
+	   //Add temp to the builds vector
+       builds.push_back(temp);
+   }
+
+
+
+
+   hMenuBar = LoadMenu(hInst, MAKEINTRESOURCE(IDC_SCRATCHETUS_CPP));
    HWND hwnd = CreateWindow(CLASS_NAME, L"Scrape Launcher", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, 600, 400, NULL, hMenuBar, hInst, NULL);
 
    if (hwnd == NULL)
@@ -247,6 +354,7 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCm
        MessageBox(NULL, L"Window creation failed!\nError 0x0000001", L"Error!", MB_OK | MB_ICONERROR);
        exit(EXIT_FAILURE);
    }
+
    if (!FileExists(L"squeak.exe"))
    {
        MessageBox(NULL, L"'squeak.exe' not found!\nError 0x0000002", L"Error!", MB_OK | MB_ICONERROR);

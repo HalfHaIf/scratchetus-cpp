@@ -1,4 +1,4 @@
-//Microsoft Visual C++ generated resource script.
+// Microsoft Visual C++ generated resource script.
 //
 #include "resource.h"
 
@@ -7,15 +7,24 @@
 //
 // Generated from the TEXTINCLUDE 2 resource.
 //
+#ifndef APSTUDIO_INVOKED
+#include "targetver.h"
+#endif
 #define APSTUDIO_HIDDEN_SYMBOLS
 #include "windows.h"
 #undef APSTUDIO_HIDDEN_SYMBOLS
+
 /////////////////////////////////////////////////////////////////////////////
 #undef APSTUDIO_READONLY_SYMBOLS
 
+/////////////////////////////////////////////////////////////////////////////
+// English (U.S.) resources
+
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
-LANGUAGE 9, 1
+#ifdef _WIN32
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
 #pragma code_page(1252)
+#endif //_WIN32
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -24,25 +33,33 @@ LANGUAGE 9, 1
 
 // Icon with lowest ID value placed first to ensure application icon
 // remains consistent on all systems.
-
-IDI_SCRATCHETUS_CPP       ICON         "Scratchetus_CPP.ico"
-IDI_SMALL               ICON         "small.ico"
+IDI_SCRATCHETUS_CPP     ICON                    "Scratchetus_CPP.ico"
+IDI_SMALL               ICON                    "small.ico"
 
 /////////////////////////////////////////////////////////////////////////////
 //
 // Menu
 //
 
-IDC_SCRATCHETUS_CPP MENU
+IDC_SCRATCHETUS_CPP MENU 
 BEGIN
     POPUP "&File"
     BEGIN
-		MENUITEM "Add Build",			 IDM_ADDBUILD
-        MENUITEM "E&xit",                IDM_EXIT
+        MENUITEM "Add Build",                   IDM_ADDBUILD
+        MENUITEM "Remove Build",                ID_FILE_REMOVE
+        MENUITEM "E&xit",                       IDM_EXIT
+    END
+    POPUP "View"
+    BEGIN
+        POPUP "Theme"
+        BEGIN
+            MENUITEM "Light Mode",                  ID_THEME_LIGHTMODE, CHECKED
+            MENUITEM "Dark Mode",                   ID_THEME_DARKMODE
+        END
     END
     POPUP "&Help"
     BEGIN
-        MENUITEM "&About ...",           IDM_ABOUT
+        MENUITEM "&About ...",                  IDM_ABOUT
     END
 END
 
@@ -52,7 +69,7 @@ END
 // Accelerator
 //
 
-IDC_SCRATCHETUS_CPP ACCELERATORS
+IDC_SCRATCHETUS_CPP ACCELERATORS 
 BEGIN
     "?",            IDM_ABOUT,              ASCII,  ALT
     "/",            IDM_ABOUT,              ASCII,  ALT
@@ -67,13 +84,14 @@ END
 IDD_ABOUTBOX DIALOGEX 0, 0, 170, 62
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "About Scrape"
-FONT 8, "MS Shell Dlg"
+FONT 8, "MS Shell Dlg", 0, 0, 0x1
 BEGIN
-    ICON            IDR_MAINFRAME,IDC_STATIC,14,14,21,20
+    ICON            128,IDC_STATIC,14,14,21,20
     LTEXT           "Scrape Launcher, Alpha version",IDC_STATIC,42,14,114,8,SS_NOPREFIX
     LTEXT           "Copyright (C) 2004",IDC_STATIC,42,26,114,8
     DEFPUSHBUTTON   "OK",IDOK,113,41,50,14,WS_GROUP
 END
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -81,7 +99,7 @@ END
 //
 
 #ifdef APSTUDIO_INVOKED
-GUIDELINES DESIGNINFO
+GUIDELINES DESIGNINFO 
 BEGIN
     IDD_ABOUTBOX, DIALOG
     BEGIN
@@ -93,19 +111,21 @@ BEGIN
 END
 #endif    // APSTUDIO_INVOKED
 
+
 #ifdef APSTUDIO_INVOKED
 /////////////////////////////////////////////////////////////////////////////
 //
 // TEXTINCLUDE
 //
-1 TEXTINCLUDE
+
+1 TEXTINCLUDE 
 BEGIN
     "resource.h\0"
 END
 
-2 TEXTINCLUDE
+2 TEXTINCLUDE 
 BEGIN
-	"#ifndef APSTUDIO_INVOKED\r\n"
+    "#ifndef APSTUDIO_INVOKED\r\n"
     "#include ""targetver.h""\r\n"
     "#endif\r\n"
     "#define APSTUDIO_HIDDEN_SYMBOLS\r\n"
@@ -114,7 +134,7 @@ BEGIN
     "\0"
 END
 
-3 TEXTINCLUDE
+3 TEXTINCLUDE 
 BEGIN
     "\r\n"
     "\0"
@@ -122,18 +142,19 @@ END
 
 #endif    // APSTUDIO_INVOKED
 
+
 /////////////////////////////////////////////////////////////////////////////
 //
 // String Table
 //
 
-STRINGTABLE
+STRINGTABLE 
 BEGIN
-   IDC_SCRATCHETUS_CPP   "SCRAPE"
-   IDS_APP_TITLE       "Scrape Launcher"
+    IDS_APP_TITLE           "Scrape Launcher"
+    IDC_SCRATCHETUS_CPP     "SCRAPE"
 END
 
-#endif
+#endif    // English (U.S.) resources
 /////////////////////////////////////////////////////////////////////////////
 
 
@@ -144,5 +165,7 @@ END
 // Generated from the TEXTINCLUDE 3 resource.
 //
 
+
 /////////////////////////////////////////////////////////////////////////////
 #endif    // not APSTUDIO_INVOKED
+
