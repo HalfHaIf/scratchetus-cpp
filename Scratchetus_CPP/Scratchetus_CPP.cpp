@@ -18,8 +18,11 @@
 
 #include <windowsx.h>
 
+#include <Shlwapi.h>
+
 #define LIGHT_MODE 1
 #define DARK_MODE 2
+#define NO_BUILD_SELECTED -1
 
 /// struct to hold build name and path
 struct BuildInfo
@@ -78,7 +81,7 @@ std::wstringstream wss_buffer;
 int int_buffer;
 
 //Stores which build we've selected
-short int selected_build = 65535;
+short int selected_build = NO_BUILD_SELECTED;
 
 //Stores which theme we're using
 short int theme;
@@ -103,11 +106,11 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		switch (wmId)
 		{
 			case ID_BUTTON:
-				//Run squeak and pass the name of the currently selected build to it
-				lpcwstr_buffer = builds[selected_build].name.c_str();
-				if (selected_build != 65535) {
+				if (selected_build != NO_BUILD_SELECTED) {
+					//Run squeak and pass the name of the currently selected build to it
+					lpcwstr_buffer = builds[selected_build].name.c_str();
 					//We have selected a build, let's open it!
-					ShellExecute(NULL, L"open", L".\\squeak.exe", lpcwstr_buffer, NULL, SW_SHOWDEFAULT);
+					ShellExecute(hwnd, L"open", L".\\squeak.exe", lpcwstr_buffer, NULL, SW_SHOWDEFAULT);
 				}
 				else
 				{
@@ -132,6 +135,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                 if(GetOpenFileName(&ofn) == TRUE)
                 {
 					temp.path = ofn.lpstrFile;
+					
+					//PathRemoveFileSpecW(temp.path);
 					
 					filename = wcsrchr(ofn.lpstrFile, L'\\');
 					if(filename != NULL) {
@@ -247,8 +252,30 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 					//Can't just shove an integer into the vector erase function for some reason
 					builds.erase(builds.begin() + i);
 					DeleteMode = false;
+					//Rewrite builds list to INI
+
+					wss_buffer.str(L"");
+					wss_buffer.clear();
+
+					//Write how many builds have been added (will be used for reading the INI later)
+					wss_buffer << builds.size();
+					WritePrivateProfileString(L"General", L"numbuilds", wss_buffer.str().c_str(), L".\\scrape.ini");
+					for (int i = 0; i < builds.size(); i++)
+					{
+						wss_buffer.str(L"");
+						wss_buffer.clear();
+						wss_buffer << L"Build" << i;
+						std::wstring section = wss_buffer.str();
+						WritePrivateProfileString(section.c_str(), L"name", builds[i].name.c_str(), L".\\scrape.ini");
+						WritePrivateProfileString(section.c_str(), L"path", builds[i].path.c_str(), L".\\scrape.ini");
+					}
 				}
 				break;
+			}
+			else
+			{
+				if (!DeleteMode)
+					selected_build = NO_BUILD_SELECTED;
 			}
 		}
 		InvalidateRect(hwnd, NULL, TRUE); // need to redraw the window, selected build has probably changed
@@ -293,101 +320,94 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 
 int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdLine, int nCmdShow)
 {
-   LPCWSTR CLASS_NAME = L"Main Window Class";
+	   LPCWSTR CLASS_NAME = L"Main Window Class";
 
-   WNDCLASS wc = { };
+	   WNDCLASS wc = { };
 
-   wc.lpfnWndProc = WndProc;
-   wc.hInstance = hInst;
-   wc.lpszClassName = CLASS_NAME;
+	   wc.lpfnWndProc = WndProc;
+	   wc.hInstance = hInst;
+	   wc.lpszClassName = CLASS_NAME;
 
-   if (!RegisterClass(&wc))
-   {
-       MessageBox(NULL, L"Window registration failed!\nError 0x0000000", L"Error!", MB_OK | MB_ICONERROR);
-       exit(EXIT_FAILURE);
-   }
+	   if (!RegisterClass(&wc))
+	   {
+		   MessageBox(NULL, L"Window registration failed!\nError 0x0000000", L"Error!", MB_OK | MB_ICONERROR);
+		   exit(EXIT_FAILURE);
+	   }
 
 
-   //If scrape.ini doesn't exist, don't load it
-   if (FileExists(L".\\scrape.ini")) {
-	   //Load stuff from INI file
+	   //If scrape.ini doesn't exist, don't load it
+	   if (FileExists(L".\\scrape.ini")) {
+		   //Load stuff from INI file
 
-	   ///Load theme from ini file
-	   const int bufferSize = 256;
-	   WCHAR lpwstr_buffer[bufferSize];
-	   GetPrivateProfileString(L"General", L"theme", L"1", lpwstr_buffer, bufferSize, L".\\scrape.ini");
+		   ///Load theme from ini file
+		   const int bufferSize = 256;
+		   WCHAR lpwstr_buffer[bufferSize];
+		   GetPrivateProfileString(L"General", L"theme", L"1", lpwstr_buffer, bufferSize, L".\\scrape.ini");
+	
+		   ///Copy to theme variable
+		   wss_buffer.str(L"");
+		   wss_buffer.clear();
 
-	   ///Copy to theme variable
-	   wss_buffer.str(L"");
-	   wss_buffer.clear();
+		   wss_buffer << lpwstr_buffer;
+		   wss_buffer >> theme;
 
-	   wss_buffer << lpwstr_buffer;
-	   wss_buffer >> theme;
+		   ///Get the number of builds we need to load from the ini file
+		   GetPrivateProfileString(L"General", L"numbuilds", L"65535", lpwstr_buffer, bufferSize, L".\\scrape.ini");
+		   
+		   ///Copy to a buffer
+		   wss_buffer.str(L"");
+		   wss_buffer.clear();
 
-	   ///Get the number of builds we need to load from the ini file
-	   GetPrivateProfileString(L"General", L"numbuilds", L"65535", lpwstr_buffer, bufferSize, L".\\scrape.ini");
-	   
-	   ///Copy to a buffer
-	   wss_buffer.str(L"");
-	   wss_buffer.clear();
+		   wss_buffer << lpwstr_buffer;
+		   wss_buffer >> int_buffer;	
+		   //If we can't find "numbuilds", just don't load the build list
+		   if (int_buffer != 65535) {
+			   //Load all of the build names and paths from the INI file
+			   for (int i = 0; i < int_buffer; i++) {
+				   //Clear data of temp
+				   temp.name = L"";
+				   temp.path = L"";
 
-	   wss_buffer << lpwstr_buffer;
-	   wss_buffer >> int_buffer;	
-	   //If we can't find "numbuilds", just don't load the build list
-	   if (int_buffer != 65535) {
-		   //Load all of the build names and paths from the INI file
-		   for (int i = 0; i < int_buffer; i++) {
-			   //Clear data of temp
-			   temp.name = L"";
-			   temp.path = L"";
+				   //Clear data of wss_buffer
+				   wss_buffer.str(L"");
+				   wss_buffer.clear();
+				   
 
-			   //Clear data of wss_buffer
-			   wss_buffer.str(L"");
-			   wss_buffer.clear();
-			   
-
-			   wss_buffer << "Build" << i;
-			   wss_buffer >> wstring_buffer;
-			   
-			   //Load the "name" and "path" keys into the temp variable
-			   GetPrivateProfileString(wstring_buffer.c_str(), L"name", L"Error! Report this to the devs.", lpwstr_buffer, bufferSize, L".\\scrape.ini");	
-			   temp.name = lpwstr_buffer;
-			   GetPrivateProfileString(wstring_buffer.c_str(), L"path", L"Error! Report this to the devs.", lpwstr_buffer, bufferSize, L".\\scrape.ini");
-			   temp.path = lpwstr_buffer;
-			   //Add temp to the builds vector
-			   builds.push_back(temp);
+				   wss_buffer << "Build" << i;
+				   wss_buffer >> wstring_buffer;
+				   
+				   //Load the "name" and "path" keys into the temp variable
+				   GetPrivateProfileString(wstring_buffer.c_str(), L"name", L"Error! Report this to the devs.", lpwstr_buffer, bufferSize, L".\\scrape.ini");	
+				   temp.name = lpwstr_buffer;
+				   GetPrivateProfileString(wstring_buffer.c_str(), L"path", L"Error! Report this to the devs.", lpwstr_buffer, bufferSize, L".\\scrape.ini");
+				   temp.path = lpwstr_buffer;
+				   //Add temp to the builds vector
+				   builds.push_back(temp);
+			   }
 		   }
 	   }
-   }
 
 
+	   hMenuBar = LoadMenu(hInst, MAKEINTRESOURCE(IDC_SCRATCHETUS_CPP));
+	   HWND hwnd = CreateWindow(CLASS_NAME, L"Scrape Launcher", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, 600, 400, NULL, hMenuBar, hInst, NULL);
 
-   hMenuBar = LoadMenu(hInst, MAKEINTRESOURCE(IDC_SCRATCHETUS_CPP));
-   HWND hwnd = CreateWindow(CLASS_NAME, L"Scrape Launcher", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, 600, 400, NULL, hMenuBar, hInst, NULL);
+	   if (hwnd == NULL)
+	   {
+		   MessageBox(NULL, L"Window creation failed!\nError 0x0000001", L"Error!", MB_OK | MB_ICONERROR);
+		   exit(EXIT_FAILURE);
+	   }
 
-   if (hwnd == NULL)
-   {
-       MessageBox(NULL, L"Window creation failed!\nError 0x0000001", L"Error!", MB_OK | MB_ICONERROR);
-       exit(EXIT_FAILURE);
-   }
+	   ShowWindow(hwnd, nCmdShow);
+	   UpdateWindow(hwnd);
 
-   if (!FileExists(L"squeak.exe"))
-   {
-       MessageBox(NULL, L"'squeak.exe' not found!\nError 0x0000002", L"Error!", MB_OK | MB_ICONERROR);
-       exit(EXIT_FAILURE);
-   }
+	   MSG msg = { };
+	   while (GetMessage(&msg, NULL, 0, 0))
+	   {
+		   TranslateMessage(&msg);
+		   DispatchMessage(&msg);
+	   }
 
-   ShowWindow(hwnd, nCmdShow);
-   UpdateWindow(hwnd);
-
-   MSG msg = { };
-   while (GetMessage(&msg, NULL, 0, 0))
-   {
-       TranslateMessage(&msg);
-       DispatchMessage(&msg);
-   }
-
-   return 0;
+	   return 0;
 }
 
 BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)

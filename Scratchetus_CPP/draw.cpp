@@ -44,7 +44,8 @@ void draw(HDC hdc, HWND hwnd, PAINTSTRUCT ps)
 		BuildBrush = CreateSolidBrush(RGB(47, 47, 63));
 		SelectedBuildBrush = CreateSolidBrush(RGB(35, 35, 46));	
 	}
-	if (theme == LIGHT_MODE) {
+	else
+	{
 		//light mode
 		RightSideBrush = CreateSolidBrush(RGB(255, 255, 255));
 		LeftSideBrush = CreateSolidBrush(RGB(LEFTSIDE_BRIGHTNESS, LEFTSIDE_BRIGHTNESS, LEFTSIDE_BRIGHTNESS));
