@@ -8,6 +8,8 @@
 #define LIGHT_MODE 1
 #define DARK_MODE 2
 
+#define NUM_THEMES 2
+
 /// struct to hold build name and path
 struct BuildInfo
 {

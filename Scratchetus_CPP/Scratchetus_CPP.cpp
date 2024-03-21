@@ -308,55 +308,57 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCm
    }
 
 
+   //If scrape.ini doesn't exist, don't load it
+   if (FileExists(L".\\scrape.ini")) {
+	   //Load stuff from INI file
 
+	   ///Load theme from ini file
+	   const int bufferSize = 256;
+	   WCHAR lpwstr_buffer[bufferSize];
+	   GetPrivateProfileString(L"General", L"theme", L"1", lpwstr_buffer, bufferSize, L".\\scrape.ini");
 
-   //Load stuff from INI file
-
-   ///Load theme from ini file
-   const int bufferSize = 256;
-   WCHAR lpwstr_buffer[bufferSize];
-   GetPrivateProfileString(L"General", L"theme", L"1", lpwstr_buffer, bufferSize, L".\\scrape.ini");
-
-   ///Copy to theme variable
-   wss_buffer.str(L"");
-   wss_buffer.clear();
-
-   wss_buffer << lpwstr_buffer;
-   wss_buffer >> theme;
-
-   ///Get the number of builds we need to load from the ini file
-   GetPrivateProfileString(L"General", L"numbuilds", L"1", lpwstr_buffer, bufferSize, L".\\scrape.ini");
-   
-   ///Copy to a buffer
-   wss_buffer.str(L"");
-   wss_buffer.clear();
-
-   wss_buffer << lpwstr_buffer;
-   wss_buffer >> int_buffer;	
-
-   //Load all of the build names and paths from the INI file
-   for (int i = 0; i < int_buffer; i++) {
-	   //Clear data of temp
-	   temp.name = L"";
-	   temp.path = L"";
-
-	   //Clear data of wss_buffer
+	   ///Copy to theme variable
 	   wss_buffer.str(L"");
 	   wss_buffer.clear();
-	   
 
-	   wss_buffer << "Build" << i;
-	   wss_buffer >> wstring_buffer;
+	   wss_buffer << lpwstr_buffer;
+	   wss_buffer >> theme;
+
+	   ///Get the number of builds we need to load from the ini file
+	   GetPrivateProfileString(L"General", L"numbuilds", L"65535", lpwstr_buffer, bufferSize, L".\\scrape.ini");
 	   
-	   //Load the "name" and "path" keys into the temp variable
-	   GetPrivateProfileString(wstring_buffer.c_str(), L"name", NULL, lpwstr_buffer, bufferSize, L".\\scrape.ini");	
-	   temp.name = lpwstr_buffer;
-	   GetPrivateProfileString(wstring_buffer.c_str(), L"path", NULL, lpwstr_buffer, bufferSize, L".\\scrape.ini");
-	   temp.path = lpwstr_buffer;
-	   //Add temp to the builds vector
-       builds.push_back(temp);
+	   ///Copy to a buffer
+	   wss_buffer.str(L"");
+	   wss_buffer.clear();
+
+	   wss_buffer << lpwstr_buffer;
+	   wss_buffer >> int_buffer;	
+	   //If we can't find "numbuilds", just don't load the build list
+	   if (int_buffer != 65535) {
+		   //Load all of the build names and paths from the INI file
+		   for (int i = 0; i < int_buffer; i++) {
+			   //Clear data of temp
+			   temp.name = L"";
+			   temp.path = L"";
+
+			   //Clear data of wss_buffer
+			   wss_buffer.str(L"");
+			   wss_buffer.clear();
+			   
+
+			   wss_buffer << "Build" << i;
+			   wss_buffer >> wstring_buffer;
+			   
+			   //Load the "name" and "path" keys into the temp variable
+			   GetPrivateProfileString(wstring_buffer.c_str(), L"name", L"Error! Report this to the devs.", lpwstr_buffer, bufferSize, L".\\scrape.ini");	
+			   temp.name = lpwstr_buffer;
+			   GetPrivateProfileString(wstring_buffer.c_str(), L"path", L"Error! Report this to the devs.", lpwstr_buffer, bufferSize, L".\\scrape.ini");
+			   temp.path = lpwstr_buffer;
+			   //Add temp to the builds vector
+			   builds.push_back(temp);
+		   }
+	   }
    }
-
 
 
 
