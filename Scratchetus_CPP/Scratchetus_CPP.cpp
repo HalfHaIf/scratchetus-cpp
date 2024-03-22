@@ -24,6 +24,9 @@
 #define DARK_MODE 2
 #define NO_BUILD_SELECTED -1
 
+#define WINDOW_WIDTH 640
+#define WINDOW_HEIGHT 480
+
 /// struct to hold build name and path
 struct BuildInfo
 {
@@ -46,6 +49,8 @@ LRESULT CALLBACK	WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK	About(HWND, UINT, WPARAM, LPARAM);
 
 //HWND that stores the button to launch Squeak
+HWND				leftPanel;
+HWND				rightPanel;
 HWND				LaunchSqueakButton;
 
 //Rectangle containing the window dimensions
@@ -93,9 +98,126 @@ bool SqueakPathDefined = false;
 //Full path of the Scrape files, used for not writing scrape.ini to the wrong place
 wchar_t exeFullPath[256];
 
-LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+HBRUSH				RightSideBrush;
+
+
+bool DeleteMode = false;
+
+LRESULT CALLBACK LeftWndProc(HWND hwnd_left, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	static bool DeleteMode;
+
+	int wmId, wmEvent;
+	PAINTSTRUCT ps;
+	HDC hdc;
+
+	switch (message)
+	{
+
+    case WM_LBUTTONDOWN:
+		mousecoords.x = GET_X_LPARAM(lParam);
+		mousecoords.y = GET_Y_LPARAM(lParam);
+
+		for(size_t i = 0; i < builds.size(); ++i) 
+		{
+			RECT buildrect;
+			buildrect.left = 0;
+			buildrect.top = i * 32;
+			buildrect.right = windowrect.right << 1; // Half the window's width
+			buildrect.bottom = 32 + (i * 32); // Fixed height
+
+			if(PtInRect(&buildrect, mousecoords))
+			{	
+				selected_build = i;
+				lpcwstr_buffer = builds[i].name.c_str();				
+				break;
+			}
+			else
+			{
+					selected_build = NO_BUILD_SELECTED;
+			}
+		}
+		InvalidateRect(hwnd_left, NULL, TRUE); // need to redraw the window, selected build has probably changed
+		break;
+	case WM_DESTROY:
+		PostQuitMessage(0);
+		break;
+	case WM_PAINT:
+		draw(hdc, hwnd_left, ps);
+	default:
+		return DefWindowProc(hwnd_left, message, wParam, lParam);
+	}
+	return 0;
+}
+
+LRESULT CALLBACK RightWndProc(HWND hwnd_right, UINT message, WPARAM wParam, LPARAM lParam)
+{
+	static bool DeleteMode;
+
+	int wmId, wmEvent;
+	PAINTSTRUCT ps;
+	HDC hdc;
+
+	switch (message)
+	{
+	case WM_COMMAND:
+		wmId    = LOWORD(wParam);
+		wmEvent = HIWORD(wParam);
+		// Parse the menu selections:
+		switch (wmId)
+		{
+			case ID_BUTTON:
+				if (selected_build != NO_BUILD_SELECTED) {
+					//Run squeak and pass the name of the currently selected build to it
+					lpcwstr_buffer = builds[selected_build].path.c_str();
+					//We have selected a build, let's open it!
+					ShellExecute(hwnd_right, L"open", SqueakPath, lpcwstr_buffer, NULL, SW_SHOWDEFAULT);
+					MessageBox(NULL, SqueakPath, L"exe", MB_OK | MB_ICONINFORMATION);
+					MessageBox(NULL, lpcwstr_buffer, L"params", MB_OK | MB_ICONINFORMATION);
+					int error = GetLastError();
+					if (error == 2) {
+						MessageBox(NULL, L"well shit.", L"Info", MB_OK | MB_ICONINFORMATION);
+					}
+					
+				}
+				else
+				{
+					//No build selected, which one are we supposed to open?
+					MessageBox(NULL, L"No build selected! Select a build first.", L"Info", MB_OK | MB_ICONINFORMATION);
+				}
+				break;
+		}
+
+	case WM_CREATE:
+		CreateWindow(L"BUTTON", L"Launch Squeak", WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON, 
+        100, 250, 125, 30, hwnd_right, (HMENU)ID_BUTTON, NULL, NULL);
+		break;
+	case WM_DESTROY:
+		PostQuitMessage(0);
+		break;
+	case WM_PAINT:
+		hdc = BeginPaint(hwnd_right, &ps);
+		if (theme == DARK_MODE) {
+			//dark mode
+			RightSideBrush = CreateSolidBrush(RGB(51, 51, 67));	
+			//set text to color to white in dark mode
+			SetTextColor(hdc, RGB(255, 255, 255));
+		}
+		else
+		{
+			//light mode
+			RightSideBrush = CreateSolidBrush(RGB(255, 255, 255));
+		}
+		FillRect(hdc, &windowrect, RightSideBrush);
+		EndPaint(hwnd_right, &ps);
+	default:
+		return DefWindowProc(hwnd_right, message, wParam, lParam);
+	}
+	return 0;
+}
+
+LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
 
 	int wmId, wmEvent;
 	PAINTSTRUCT ps;
@@ -111,26 +233,6 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		// Parse the menu selections:
 		switch (wmId)
 		{
-			case ID_BUTTON:
-				if (selected_build != NO_BUILD_SELECTED) {
-					//Run squeak and pass the name of the currently selected build to it
-					lpcwstr_buffer = builds[selected_build].path.c_str();
-					//We have selected a build, let's open it!
-					ShellExecute(hwnd, L"open", SqueakPath, lpcwstr_buffer, NULL, SW_SHOWDEFAULT);
-					MessageBox(NULL, SqueakPath, L"exe", MB_OK | MB_ICONINFORMATION);
-					MessageBox(NULL, lpcwstr_buffer, L"params", MB_OK | MB_ICONINFORMATION);
-					int error = GetLastError();
-					if (error == 2) {
-						MessageBox(NULL, L"well shit.", L"Info", MB_OK | MB_ICONINFORMATION);
-					}
-					
-				}
-				else
-				{
-					//No build selected, which one are we supposed to open?
-					MessageBox(NULL, L"No build selected! Select a build first.", L"Info", MB_OK | MB_ICONINFORMATION);
-				}
-				break;
 			case IDM_ADDBUILD:
 				//Open the dialog
                 ZeroMemory(&ofn, sizeof(ofn));
@@ -186,8 +288,25 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 				break;
 			case IDM_REMOVEBUILD:
-				//This boolean makes it so that, when you click on a build, it will be removed from the list
-				DeleteMode = true;
+				builds.erase(builds.begin() + selected_build);
+				//Rewrite builds list to INI
+
+				wss_buffer.str(L"");
+				wss_buffer.clear();
+
+				//Write how many builds have been added (will be used for reading the INI later)
+				wss_buffer << builds.size();
+				WritePrivateProfileString(L"General", L"numbuilds", wss_buffer.str().c_str(), exeFullPath);
+				for (int i = 0; i < builds.size(); i++)
+				{
+					wss_buffer.str(L"");
+					wss_buffer.clear();
+					wss_buffer << L"Build" << i;
+					std::wstring section = wss_buffer.str();
+					WritePrivateProfileString(section.c_str(), L"name", builds[i].name.c_str(), exeFullPath);
+					WritePrivateProfileString(section.c_str(), L"path", builds[i].path.c_str(), exeFullPath);
+				}
+				InvalidateRect(hwnd, NULL, TRUE); 
 				break;
 			case IDM_ABOUT:
 				DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hwnd, About);
@@ -239,74 +358,12 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 		GetClientRect(hwnd, &windowrect);
 
 		// Change position of the "Launch Squeak" button to account for the new window size
-		LaunchSqueakButton = GetDlgItem(hwnd, ID_BUTTON);
+		LaunchSqueakButton = GetDlgItem(leftPanel, ID_BUTTON);
         SetWindowPos(LaunchSqueakButton, NULL, (int)windowrect.right * 0.65, windowrect.bottom * 0.8, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
 
 		// Redraw window, window size has changed
         InvalidateRect(hwnd, NULL, TRUE); 
         break;
-	case WM_PAINT:
-		draw(hdc, hwnd, ps);
-		break;
-    case WM_LBUTTONDOWN:
-		mousecoords.x = GET_X_LPARAM(lParam);
-		mousecoords.y = GET_Y_LPARAM(lParam);
-
-		for(size_t i = 0; i < builds.size(); ++i) 
-		{
-			RECT buildrect;
-			buildrect.left = 0;
-			buildrect.top = i * 64;
-			buildrect.right = windowrect.right << 1; // Half the window's width
-			buildrect.bottom = 64 + (i * 64); // Fixed height
-
-			if(PtInRect(&buildrect, mousecoords))
-			{	
-				if (!DeleteMode) {
-					selected_build = i;
-					lpcwstr_buffer = builds[i].name.c_str();				
-				}
-				else
-				{
-					//Can't just shove an integer into the vector erase function for some reason
-					builds.erase(builds.begin() + i);
-					DeleteMode = false;
-					//Rewrite builds list to INI
-
-					wss_buffer.str(L"");
-					wss_buffer.clear();
-
-					//Write how many builds have been added (will be used for reading the INI later)
-					wss_buffer << builds.size();
-					WritePrivateProfileString(L"General", L"numbuilds", wss_buffer.str().c_str(), exeFullPath);
-					for (int i = 0; i < builds.size(); i++)
-					{
-						wss_buffer.str(L"");
-						wss_buffer.clear();
-						wss_buffer << L"Build" << i;
-						std::wstring section = wss_buffer.str();
-						WritePrivateProfileString(section.c_str(), L"name", builds[i].name.c_str(), exeFullPath);
-						WritePrivateProfileString(section.c_str(), L"path", builds[i].path.c_str(), exeFullPath);
-					}
-				}
-				break;
-			}
-			else
-			{
-				if (!DeleteMode)
-					selected_build = NO_BUILD_SELECTED;
-			}
-		}
-		InvalidateRect(hwnd, NULL, TRUE); // need to redraw the window, selected build has probably changed
-		break;
-	case WM_CREATE:
-	{
-		// Create a button on the right side of the window
-		CreateWindow(L"BUTTON", L"Launch Squeak", WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON, 
-		windowrect.right << 2, 250, 125, 30, hwnd, (HMENU)ID_BUTTON, NULL, NULL);
-	}
-	break;
-
 	case WM_DESTROY:
 		PostQuitMessage(0);
 		break;
@@ -354,15 +411,31 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCm
 	wcscat(exeFullPath, L"scrape.ini");
 
 
-	   LPCWSTR CLASS_NAME = L"Main Window Class";
+	   LPCWSTR MAINWC_NAME = L"Main Window Class";
 
-	   WNDCLASS wc = { };
+	   WNDCLASS mainwc = { };
 
-	   wc.lpfnWndProc = WndProc;
-	   wc.hInstance = hInst;
-	   wc.lpszClassName = CLASS_NAME;
+	   mainwc.lpfnWndProc = WndProc;
+	   mainwc.hInstance = hInst;
+	   mainwc.lpszClassName = MAINWC_NAME;
 
-	   if (!RegisterClass(&wc))
+	   LPCWSTR LEFTWC_NAME = L"Left Window Class";
+
+	   WNDCLASS leftwc = { };
+
+	   leftwc.lpfnWndProc = LeftWndProc;
+	   leftwc.hInstance = hInst;
+	   leftwc.lpszClassName = LEFTWC_NAME;
+
+	   LPCWSTR RIGHTWC_NAME = L"Right Window Class";
+
+	   WNDCLASS rightwc = { };
+
+	   rightwc.lpfnWndProc = RightWndProc;
+	   rightwc.hInstance = hInst;
+	   rightwc.lpszClassName = RIGHTWC_NAME;
+
+	   if ((!RegisterClass(&mainwc) || !RegisterClass(&leftwc) || !RegisterClass(&rightwc)))
 	   {
 		   MessageBox(NULL, L"Window registration failed!\nError 0x0000000", L"Error!", MB_OK | MB_ICONERROR);
 		   exit(EXIT_FAILURE);
@@ -461,7 +534,7 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCm
 			WritePrivateProfileString(L"General", L"squeakpath", SqueakPath, exeFullPath);
 	   }
 	   hMenuBar = LoadMenu(hInst, MAKEINTRESOURCE(IDC_SCRATCHETUS_CPP));
-	   HWND hwnd = CreateWindow(CLASS_NAME, L"Scrape Launcher", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, 600, 400, NULL, hMenuBar, hInst, NULL);
+	   HWND hwnd = CreateWindow(MAINWC_NAME, L"Scrape Launcher", WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX, CW_USEDEFAULT, CW_USEDEFAULT, 640, 480, NULL, hMenuBar, hInst, NULL);
 
 	   if (hwnd == NULL)
 	   {
@@ -469,8 +542,15 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCm
 		   exit(EXIT_FAILURE);
 	   }
 
+
+	   int scrollbarWidth = GetSystemMetrics(SM_CXVSCROLL);
+	   int titleBarHeight = GetSystemMetrics(SM_CYCAPTION);
+	   int menuHeight = GetSystemMetrics(SM_CYMENU);
+	   leftPanel = CreateWindowEx(WS_EX_CLIENTEDGE, LEFTWC_NAME, NULL, WS_CHILD | WS_VISIBLE | WS_VSCROLL, 0, 0, WINDOW_WIDTH / 2, WINDOW_HEIGHT - titleBarHeight - menuHeight, hwnd, NULL, hInstance, NULL);
+	   rightPanel = CreateWindowEx(WS_EX_CLIENTEDGE, RIGHTWC_NAME, NULL, WS_CHILD | WS_VISIBLE, (WINDOW_WIDTH / 2), 0, WINDOW_WIDTH / 2, WINDOW_HEIGHT - titleBarHeight - menuHeight, hwnd, NULL, hInstance, NULL);
 	   ShowWindow(hwnd, nCmdShow);
 	   UpdateWindow(hwnd);
+
 
 	   MSG msg = { };
 	   while (GetMessage(&msg, NULL, 0, 0))
