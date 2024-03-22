@@ -71,6 +71,7 @@ POINT mousecoords;
 
 // Buffer mainly used for converting wstrings to LPCWSTR
 LPCWSTR lpcwstr_buffer;
+LPCWSTR lpcwstr_buffer2;
 
 LPWSTR lpwstr_buffer;
 
@@ -86,6 +87,11 @@ short int selected_build = NO_BUILD_SELECTED;
 //Stores which theme we're using
 short int theme;
 
+wchar_t SqueakPath[256];
+bool SqueakPathDefined = false;
+
+//Full path of the Scrape files, used for not writing scrape.ini to the wrong place
+wchar_t exeFullPath[256];
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -108,9 +114,16 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 			case ID_BUTTON:
 				if (selected_build != NO_BUILD_SELECTED) {
 					//Run squeak and pass the name of the currently selected build to it
-					lpcwstr_buffer = builds[selected_build].name.c_str();
+					lpcwstr_buffer = builds[selected_build].path.c_str();
 					//We have selected a build, let's open it!
-					ShellExecute(hwnd, L"open", L".\\squeak.exe", lpcwstr_buffer, NULL, SW_SHOWDEFAULT);
+					ShellExecute(hwnd, L"open", SqueakPath, lpcwstr_buffer, NULL, SW_SHOWDEFAULT);
+					MessageBox(NULL, SqueakPath, L"exe", MB_OK | MB_ICONINFORMATION);
+					MessageBox(NULL, lpcwstr_buffer, L"params", MB_OK | MB_ICONINFORMATION);
+					int error = GetLastError();
+					if (error == 2) {
+						MessageBox(NULL, L"well shit.", L"Info", MB_OK | MB_ICONINFORMATION);
+					}
+					
 				}
 				else
 				{
@@ -119,6 +132,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 				}
 				break;
 			case IDM_ADDBUILD:
+				//Open the dialog
                 ZeroMemory(&ofn, sizeof(ofn));
                 ofn.lStructSize = sizeof(ofn);
                 ofn.hwndOwner = hwnd;
@@ -136,13 +150,18 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                 {
 					temp.path = ofn.lpstrFile;
 					
-					//PathRemoveFileSpecW(temp.path);
-					
+					//Copy to the LPWSTR buffer, the function to remove the filename only accepts LPWSTRs
+					lpwstr_buffer = const_cast<wchar_t*>(temp.path.c_str());
+
+					//Remove the filename of the build from the path element
+					//Transfer the data back to the proper path variable
+					temp.path = lpwstr_buffer;
+
 					filename = wcsrchr(ofn.lpstrFile, L'\\');
 					if(filename != NULL) {
 						temp.name = filename + 1;
 					}
-					
+					//Add to the builds vector
 					builds.push_back(temp);
                 }
 				
@@ -151,7 +170,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 				//Write how many builds have been added (will be used for reading the INI later)
 				wss_buffer << builds.size();
-				WritePrivateProfileString(L"General", L"numbuilds", wss_buffer.str().c_str(), L".\\scrape.ini");
+				WritePrivateProfileString(L"General", L"numbuilds", wss_buffer.str().c_str(), exeFullPath);
 
 				for (int i = 0; i < builds.size(); i++)
 				{
@@ -159,8 +178,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 					wss_buffer.clear();
 					wss_buffer << L"Build" << i;
 					std::wstring section = wss_buffer.str();
-					WritePrivateProfileString(section.c_str(), L"name", builds[i].name.c_str(), L".\\scrape.ini");
-					WritePrivateProfileString(section.c_str(), L"path", builds[i].path.c_str(), L".\\scrape.ini");
+					WritePrivateProfileString(section.c_str(), L"name", builds[i].name.c_str(), exeFullPath);
+					WritePrivateProfileString(section.c_str(), L"path", builds[i].path.c_str(), exeFullPath);
 				}
 
 				InvalidateRect(hwnd, NULL, TRUE);
@@ -191,7 +210,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 				wss_buffer.str(L"");
 				wss_buffer.clear();
 				wss_buffer << theme;
-				WritePrivateProfileString(L"General", L"theme", wss_buffer.str().c_str(), L".\\scrape.ini");
+				WritePrivateProfileString(L"General", L"theme", wss_buffer.str().c_str(), exeFullPath);
 				break;
 			case ID_THEME_DARKMODE:
 				//Uncheck light mode
@@ -208,7 +227,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 				wss_buffer.str(L"");
 				wss_buffer.clear();
 				wss_buffer << theme;
-				WritePrivateProfileString(L"General", L"theme", wss_buffer.str().c_str(), L".\\scrape.ini");
+				WritePrivateProfileString(L"General", L"theme", wss_buffer.str().c_str(), exeFullPath);
 				break;
 			default:
 				return DefWindowProc(hwnd, message, wParam, lParam);
@@ -259,15 +278,15 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 					//Write how many builds have been added (will be used for reading the INI later)
 					wss_buffer << builds.size();
-					WritePrivateProfileString(L"General", L"numbuilds", wss_buffer.str().c_str(), L".\\scrape.ini");
+					WritePrivateProfileString(L"General", L"numbuilds", wss_buffer.str().c_str(), exeFullPath);
 					for (int i = 0; i < builds.size(); i++)
 					{
 						wss_buffer.str(L"");
 						wss_buffer.clear();
 						wss_buffer << L"Build" << i;
 						std::wstring section = wss_buffer.str();
-						WritePrivateProfileString(section.c_str(), L"name", builds[i].name.c_str(), L".\\scrape.ini");
-						WritePrivateProfileString(section.c_str(), L"path", builds[i].path.c_str(), L".\\scrape.ini");
+						WritePrivateProfileString(section.c_str(), L"name", builds[i].name.c_str(), exeFullPath);
+						WritePrivateProfileString(section.c_str(), L"path", builds[i].path.c_str(), exeFullPath);
 					}
 				}
 				break;
@@ -320,6 +339,21 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 
 int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdLine, int nCmdShow)
 {
+	// Get the full path of the executable, this will be helpful for not writing scrape.ini to the wrong directory
+	GetModuleFileName(NULL, exeFullPath, 256);
+
+	// Find the last backslash in the path
+	wchar_t* lastSlash = wcsrchr(exeFullPath, L'\\');
+	if (lastSlash != NULL)
+	{
+		// Terminate the string after the last backslash, removing the executable's filename
+		*(lastSlash + 1) = L'\0';
+	}
+
+	// Append scrape.ini to the path
+	wcscat(exeFullPath, L"scrape.ini");
+
+
 	   LPCWSTR CLASS_NAME = L"Main Window Class";
 
 	   WNDCLASS wc = { };
@@ -340,9 +374,9 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCm
 		   //Load stuff from INI file
 
 		   ///Load theme from ini file
-		   const int bufferSize = 256;
+		   const int bufferSize = 384;
 		   WCHAR lpwstr_buffer[bufferSize];
-		   GetPrivateProfileString(L"General", L"theme", L"1", lpwstr_buffer, bufferSize, L".\\scrape.ini");
+		   GetPrivateProfileString(L"General", L"theme", L"1", lpwstr_buffer, bufferSize, exeFullPath);
 	
 		   ///Copy to theme variable
 		   wss_buffer.str(L"");
@@ -351,8 +385,23 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCm
 		   wss_buffer << lpwstr_buffer;
 		   wss_buffer >> theme;
 
+		   GetPrivateProfileString(L"General", L"squeakpath", L"path_error", lpwstr_buffer, bufferSize - 2, exeFullPath);
+
+		   if (!(wcscmp(lpwstr_buffer, L"path_error") == 0)) {
+				// There's a path to a Squeak EXE in the INI file!
+
+			    // We should probably copy it to the SqueakPath variable 
+				wcscpy(SqueakPath, lpwstr_buffer);
+
+			    // and tell the rest of the program that we don't need to declare a path anymore.
+				SqueakPathDefined = true;
+
+				//This fixes a bug for some reason
+				WritePrivateProfileString(L"General", L"squeakpath", SqueakPath, exeFullPath);
+		   }
+
 		   ///Get the number of builds we need to load from the ini file
-		   GetPrivateProfileString(L"General", L"numbuilds", L"65535", lpwstr_buffer, bufferSize, L".\\scrape.ini");
+		   GetPrivateProfileString(L"General", L"numbuilds", L"65535", lpwstr_buffer, bufferSize, exeFullPath);
 		   
 		   ///Copy to a buffer
 		   wss_buffer.str(L"");
@@ -377,9 +426,9 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCm
 				   wss_buffer >> wstring_buffer;
 				   
 				   //Load the "name" and "path" keys into the temp variable
-				   GetPrivateProfileString(wstring_buffer.c_str(), L"name", L"Error! Report this to the devs.", lpwstr_buffer, bufferSize, L".\\scrape.ini");	
+				   GetPrivateProfileString(wstring_buffer.c_str(), L"name", L"Error! Report this to the devs.", lpwstr_buffer, bufferSize, exeFullPath);	
 				   temp.name = lpwstr_buffer;
-				   GetPrivateProfileString(wstring_buffer.c_str(), L"path", L"Error! Report this to the devs.", lpwstr_buffer, bufferSize, L".\\scrape.ini");
+				   GetPrivateProfileString(wstring_buffer.c_str(), L"path", L"Error! Report this to the devs.", lpwstr_buffer, bufferSize, exeFullPath);
 				   temp.path = lpwstr_buffer;
 				   //Add temp to the builds vector
 				   builds.push_back(temp);
@@ -387,7 +436,30 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCm
 		   }
 	   }
 
+	   //The path of the EXE is not defined, we should ask the user for it
+	   if(!SqueakPathDefined) {
+			MessageBox(NULL, L"Squeak executable not found! \n Please specify the path of a Squeak executable.", L"Info", MB_OK | MB_ICONINFORMATION);
+			ZeroMemory(&ofn, sizeof(ofn));
+            ofn.lStructSize = sizeof(ofn);
+            ofn.lpstrFile = szFile;
+            ofn.lpstrFile[0] = L'\0';
+            ofn.nMaxFile = sizeof(szFile);
+            ofn.lpstrFilter = L"Executable\0*.EXE\0";
+            ofn.nFilterIndex = 1;
+            ofn.lpstrFileTitle = NULL;
+            ofn.nMaxFileTitle = 0;
+            ofn.lpstrInitialDir = NULL;
+            ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
 
+            if(GetOpenFileName(&ofn) == TRUE)
+            {
+				wcscpy(SqueakPath, ofn.lpstrFile);
+				SqueakPathDefined = true;
+				//Write Squeak EXE path to the INI file
+				
+			}
+			WritePrivateProfileString(L"General", L"squeakpath", SqueakPath, exeFullPath);
+	   }
 	   hMenuBar = LoadMenu(hInst, MAKEINTRESOURCE(IDC_SCRATCHETUS_CPP));
 	   HWND hwnd = CreateWindow(CLASS_NAME, L"Scrape Launcher", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT, 600, 400, NULL, hMenuBar, hInst, NULL);
 
