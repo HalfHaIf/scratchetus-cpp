@@ -295,7 +295,16 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 	switch (message)
 	{
 
-
+	case WM_KEYDOWN:
+		if (wParam == VK_UP && selected_build > 0) {
+			selected_build--;
+			InvalidateRect(hwnd, NULL, TRUE);
+		}
+		if (wParam == VK_DOWN && selected_build < builds.size() - 1) {
+			selected_build++;
+			InvalidateRect(hwnd, NULL, TRUE);
+		}
+		break;
 	case WM_COMMAND:
 		wmId    = LOWORD(wParam);
 		wmEvent = HIWORD(wParam);
@@ -406,7 +415,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 				}
 				break;
 			case ID_BUILD_MOVEDOWN:
-				if (selected_build < builds.size()) {
+				if (selected_build < (builds.size() - 1)) {
 					std::swap(builds[selected_build], builds[selected_build + 1]);
 					selected_build++;
 					//Rewrite builds list to INI
@@ -670,6 +679,11 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCm
 	   int menuHeight = GetSystemMetrics(SM_CYMENU);
 	   leftPanel = CreateWindowEx(WS_EX_CLIENTEDGE, LEFTWC_NAME, NULL, WS_CHILD | WS_VISIBLE | WS_VSCROLL, 0, 0, 320, WINDOW_HEIGHT - titleBarHeight - menuHeight, hwnd, NULL, hInstance, NULL);
 	   rightPanel = CreateWindowEx(WS_EX_CLIENTEDGE, RIGHTWC_NAME, NULL, WS_CHILD | WS_VISIBLE, 320, 0, 480, WINDOW_HEIGHT - titleBarHeight - menuHeight, hwnd, NULL, hInstance, NULL);
+	   
+	   //Load accelerators
+	   HACCEL hAccel = LoadAccelerators(hInstance, MAKEINTRESOURCE(IDC_SCRATCHETUS_CPP));
+
+
 	   ShowWindow(hwnd, nCmdShow);
 	   UpdateWindow(hwnd);
 
@@ -677,8 +691,11 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCm
 	   MSG msg = { };
 	   while (GetMessage(&msg, NULL, 0, 0))
 	   {
-		   TranslateMessage(&msg);
-		   DispatchMessage(&msg);
+		   if(!TranslateAccelerator(hwnd, hAccel, &msg))
+		   {
+			   TranslateMessage(&msg);
+			   DispatchMessage(&msg);
+		   }
 	   }
 
 	   return 0;
