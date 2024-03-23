@@ -49,6 +49,11 @@ BEGIN
         MENUITEM "Remove Build",                IDM_REMOVEBUILD
         MENUITEM "E&xit",                       IDM_EXIT
     END
+    POPUP "Build"
+    BEGIN
+        MENUITEM "Move Up",                     ID_BUILD_MOVEUP
+        MENUITEM "Move Down",                   ID_BUILD_MOVEDOWN
+    END
     POPUP "View"
     BEGIN
         POPUP "Theme"
@@ -71,8 +76,11 @@ END
 
 IDC_SCRATCHETUS_CPP ACCELERATORS 
 BEGIN
-    "?",            IDM_ABOUT,              ASCII,  ALT
-    "/",            IDM_ABOUT,              ASCII,  ALT
+    "/",            IDM_ABOUT,              ASCII,  ALT, NOINVERT
+    "?",            IDM_ABOUT,              ASCII,  ALT, NOINVERT
+    "A",            IDM_ADDBUILD,           ASCII,  NOINVERT
+    VK_DELETE,      IDM_REMOVEBUILD,        VIRTKEY, NOINVERT
+    VK_UP,          ID_BUILD_MOVEUP,        VIRTKEY, NOINVERT
 END
 
 

@@ -24,7 +24,7 @@
 #define DARK_MODE 2
 #define NO_BUILD_SELECTED -1
 
-#define WINDOW_WIDTH 640
+#define WINDOW_WIDTH 800
 #define WINDOW_HEIGHT 480
 
 /// struct to hold build name and path
@@ -103,6 +103,16 @@ HBRUSH				RightSideBrush;
 
 bool DeleteMode = false;
 
+extern RECT				leftsiderect;
+
+std::wstring remove_extension(const std::wstring& filename) {
+    size_t last_dot = filename.find_last_of(L".");
+    if (last_dot == std::wstring::npos)
+        return filename;
+    else
+        return filename.substr(0, last_dot);
+}
+
 LRESULT CALLBACK LeftWndProc(HWND hwnd_left, UINT message, WPARAM wParam, LPARAM lParam)
 {
 	static bool DeleteMode;
@@ -110,6 +120,9 @@ LRESULT CALLBACK LeftWndProc(HWND hwnd_left, UINT message, WPARAM wParam, LPARAM
 	int wmId, wmEvent;
 	PAINTSTRUCT ps;
 	HDC hdc;
+
+	int scrollPos = GetScrollPos(hwnd_left, SB_VERT); 
+	GetClientRect(hwnd_left, &leftsiderect);
 
 	switch (message)
 	{
@@ -122,9 +135,9 @@ LRESULT CALLBACK LeftWndProc(HWND hwnd_left, UINT message, WPARAM wParam, LPARAM
 		{
 			RECT buildrect;
 			buildrect.left = 0;
-			buildrect.top = i * 32;
-			buildrect.right = windowrect.right << 1; // Half the window's width
-			buildrect.bottom = 32 + (i * 32); // Fixed height
+			buildrect.top = i * 32 - scrollPos;
+			buildrect.right = leftsiderect.right; // Half the window's width
+			buildrect.bottom = (32 + (i * 32)) - scrollPos; // Fixed height
 
 			if(PtInRect(&buildrect, mousecoords))
 			{	
@@ -143,7 +156,65 @@ LRESULT CALLBACK LeftWndProc(HWND hwnd_left, UINT message, WPARAM wParam, LPARAM
 		PostQuitMessage(0);
 		break;
 	case WM_PAINT:
+		SCROLLINFO si;
+        ZeroMemory(&si, sizeof(si));
+        si.cbSize = sizeof(si);
+		si.nMin = 0;
+		// Max scroll of the scrollbar is how many builds we have times 32
+		si.nMax = builds.size() * 32; 
+		si.fMask = SIF_ALL; // Get all scroll bar information
 		draw(hdc, hwnd_left, ps);
+		break;
+	//scroll bar
+	case WM_VSCROLL:
+	{
+            int action = LOWORD(wParam); // Get the scroll bar action
+            SCROLLINFO si;
+            ZeroMemory(&si, sizeof(si));
+            si.cbSize = sizeof(si);
+			si.nMin = 0;
+			// Max scroll of the scrollbar is how many builds we have times 32
+			si.nMax = builds.size() * 32; 
+            si.fMask = SIF_ALL; // Get all scroll bar information
+
+            GetScrollInfo(hwnd_left, SB_VERT, &si); // Get the current scroll bar information
+
+            switch (action)
+            {
+                case SB_LINEUP: // User clicked the top arrow
+                    si.nPos -= 1;
+					InvalidateRect(hwnd_left, NULL, TRUE);
+                    break;
+
+                case SB_LINEDOWN: // User clicked the bottom arrow
+                    si.nPos += 1;
+					InvalidateRect(hwnd_left, NULL, TRUE);
+                    break;
+
+                case SB_PAGEUP: // User clicked the scroll bar shaft above the scroll box
+                    si.nPos -= si.nPage;
+					InvalidateRect(hwnd_left, NULL, TRUE);
+                    break;
+
+                case SB_PAGEDOWN: // User clicked the scroll bar shaft below the scroll box
+                    si.nPos += si.nPage;
+					InvalidateRect(hwnd_left, NULL, TRUE);
+                    break;
+
+                case SB_THUMBTRACK: // User is dragging the scroll box
+                    si.nPos = si.nTrackPos;
+					InvalidateRect(hwnd_left, NULL, TRUE);
+                    break;
+
+                default:
+                    break;
+            }
+
+            // Set the position and redraw the window
+            SetScrollInfo(hwnd_left, SB_VERT, &si, TRUE);
+            UpdateWindow(hwnd_left);
+            break;
+	}
 	default:
 		return DefWindowProc(hwnd_left, message, wParam, lParam);
 	}
@@ -172,11 +243,9 @@ LRESULT CALLBACK RightWndProc(HWND hwnd_right, UINT message, WPARAM wParam, LPAR
 					lpcwstr_buffer = builds[selected_build].path.c_str();
 					//We have selected a build, let's open it!
 					ShellExecute(hwnd_right, L"open", SqueakPath, lpcwstr_buffer, NULL, SW_SHOWDEFAULT);
-					MessageBox(NULL, SqueakPath, L"exe", MB_OK | MB_ICONINFORMATION);
-					MessageBox(NULL, lpcwstr_buffer, L"params", MB_OK | MB_ICONINFORMATION);
 					int error = GetLastError();
 					if (error == 2) {
-						MessageBox(NULL, L"well shit.", L"Info", MB_OK | MB_ICONINFORMATION);
+						MessageBox(NULL, L"Can't find Squeak file!", L"Error!", MB_OK | MB_ICONERROR);
 					}
 					
 				}
@@ -190,7 +259,7 @@ LRESULT CALLBACK RightWndProc(HWND hwnd_right, UINT message, WPARAM wParam, LPAR
 
 	case WM_CREATE:
 		CreateWindow(L"BUTTON", L"Launch Squeak", WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON, 
-        100, 250, 125, 30, hwnd_right, (HMENU)ID_BUTTON, NULL, NULL);
+        180, 350, 125, 30, hwnd_right, (HMENU)ID_BUTTON, NULL, NULL);
 		break;
 	case WM_DESTROY:
 		PostQuitMessage(0);
@@ -241,7 +310,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
                 ofn.lpstrFile = szFile;
                 ofn.lpstrFile[0] = L'\0';
                 ofn.nMaxFile = sizeof(szFile);
-                ofn.lpstrFilter = L"All\0*.*\0Text\0*.TXT\0";
+                ofn.lpstrFilter = L"Squeak Program\0*.image";
                 ofn.nFilterIndex = 1;
                 ofn.lpstrFileTitle = NULL;
                 ofn.nMaxFileTitle = 0;
@@ -261,8 +330,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 					filename = wcsrchr(ofn.lpstrFile, L'\\');
 					if(filename != NULL) {
-						temp.name = filename + 1;
+						temp.name = remove_extension(filename + 1);
 					}
+
 					//Add to the builds vector
 					builds.push_back(temp);
                 }
@@ -288,25 +358,76 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 				break;
 			case IDM_REMOVEBUILD:
-				builds.erase(builds.begin() + selected_build);
-				//Rewrite builds list to INI
+				// If we have selected a build....
+				if (selected_build != -1) {
+					builds.erase(builds.begin() + selected_build);
+					//Rewrite builds list to INI
 
-				wss_buffer.str(L"");
-				wss_buffer.clear();
-
-				//Write how many builds have been added (will be used for reading the INI later)
-				wss_buffer << builds.size();
-				WritePrivateProfileString(L"General", L"numbuilds", wss_buffer.str().c_str(), exeFullPath);
-				for (int i = 0; i < builds.size(); i++)
-				{
 					wss_buffer.str(L"");
 					wss_buffer.clear();
-					wss_buffer << L"Build" << i;
-					std::wstring section = wss_buffer.str();
-					WritePrivateProfileString(section.c_str(), L"name", builds[i].name.c_str(), exeFullPath);
-					WritePrivateProfileString(section.c_str(), L"path", builds[i].path.c_str(), exeFullPath);
+
+					//Write how many builds have been added (will be used for reading the INI later)
+					wss_buffer << builds.size();
+					WritePrivateProfileString(L"General", L"numbuilds", wss_buffer.str().c_str(), exeFullPath);
+					for (int i = 0; i < builds.size(); i++)
+					{
+						wss_buffer.str(L"");
+						wss_buffer.clear();
+						wss_buffer << L"Build" << i;
+						std::wstring section = wss_buffer.str();
+						WritePrivateProfileString(section.c_str(), L"name", builds[i].name.c_str(), exeFullPath);
+						WritePrivateProfileString(section.c_str(), L"path", builds[i].path.c_str(), exeFullPath);
+					}
+					InvalidateRect(hwnd, NULL, TRUE); 
 				}
-				InvalidateRect(hwnd, NULL, TRUE); 
+				break;
+			case ID_BUILD_MOVEUP:
+				if (selected_build > 0) {
+					std::swap(builds[selected_build], builds[selected_build - 1]);
+					selected_build--;
+					//Rewrite builds list to INI
+
+						wss_buffer.str(L"");
+						wss_buffer.clear();
+
+						//Write how many builds have been added (will be used for reading the INI later)
+						wss_buffer << builds.size();
+						WritePrivateProfileString(L"General", L"numbuilds", wss_buffer.str().c_str(), exeFullPath);
+						for (int i = 0; i < builds.size(); i++)
+						{
+							wss_buffer.str(L"");
+							wss_buffer.clear();
+							wss_buffer << L"Build" << i;
+							std::wstring section = wss_buffer.str();
+							WritePrivateProfileString(section.c_str(), L"name", builds[i].name.c_str(), exeFullPath);
+							WritePrivateProfileString(section.c_str(), L"path", builds[i].path.c_str(), exeFullPath);
+						}
+						InvalidateRect(hwnd, NULL, TRUE); 
+				}
+				break;
+			case ID_BUILD_MOVEDOWN:
+				if (selected_build < builds.size()) {
+					std::swap(builds[selected_build], builds[selected_build + 1]);
+					selected_build++;
+					//Rewrite builds list to INI
+
+						wss_buffer.str(L"");
+						wss_buffer.clear();
+
+						//Write how many builds have been added (will be used for reading the INI later)
+						wss_buffer << builds.size();
+						WritePrivateProfileString(L"General", L"numbuilds", wss_buffer.str().c_str(), exeFullPath);
+						for (int i = 0; i < builds.size(); i++)
+						{
+							wss_buffer.str(L"");
+							wss_buffer.clear();
+							wss_buffer << L"Build" << i;
+							std::wstring section = wss_buffer.str();
+							WritePrivateProfileString(section.c_str(), L"name", builds[i].name.c_str(), exeFullPath);
+							WritePrivateProfileString(section.c_str(), L"path", builds[i].path.c_str(), exeFullPath);
+						}
+						InvalidateRect(hwnd, NULL, TRUE); 
+				}
 				break;
 			case IDM_ABOUT:
 				DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hwnd, About);
@@ -394,6 +515,7 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 	return (INT_PTR)FALSE;
 }
 
+
 int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdLine, int nCmdShow)
 {
 	// Get the full path of the executable, this will be helpful for not writing scrape.ini to the wrong directory
@@ -437,7 +559,7 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCm
 
 	   if ((!RegisterClass(&mainwc) || !RegisterClass(&leftwc) || !RegisterClass(&rightwc)))
 	   {
-		   MessageBox(NULL, L"Window registration failed!\nError 0x0000000", L"Error!", MB_OK | MB_ICONERROR);
+		   MessageBox(NULL, L"Window registration failed!", L"Error!", MB_OK | MB_ICONERROR);
 		   exit(EXIT_FAILURE);
 	   }
 
@@ -534,11 +656,11 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCm
 			WritePrivateProfileString(L"General", L"squeakpath", SqueakPath, exeFullPath);
 	   }
 	   hMenuBar = LoadMenu(hInst, MAKEINTRESOURCE(IDC_SCRATCHETUS_CPP));
-	   HWND hwnd = CreateWindow(MAINWC_NAME, L"Scrape Launcher", WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX, CW_USEDEFAULT, CW_USEDEFAULT, 640, 480, NULL, hMenuBar, hInst, NULL);
+	   HWND hwnd = CreateWindow(MAINWC_NAME, L"Scrape Launcher", WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME, CW_USEDEFAULT, CW_USEDEFAULT, 800, 480, NULL, hMenuBar, hInst, NULL);
 
 	   if (hwnd == NULL)
 	   {
-		   MessageBox(NULL, L"Window creation failed!\nError 0x0000001", L"Error!", MB_OK | MB_ICONERROR);
+		   MessageBox(NULL, L"Window creation failed!", L"Error!", MB_OK | MB_ICONERROR);
 		   exit(EXIT_FAILURE);
 	   }
 
@@ -546,8 +668,8 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCm
 	   int scrollbarWidth = GetSystemMetrics(SM_CXVSCROLL);
 	   int titleBarHeight = GetSystemMetrics(SM_CYCAPTION);
 	   int menuHeight = GetSystemMetrics(SM_CYMENU);
-	   leftPanel = CreateWindowEx(WS_EX_CLIENTEDGE, LEFTWC_NAME, NULL, WS_CHILD | WS_VISIBLE | WS_VSCROLL, 0, 0, WINDOW_WIDTH / 2, WINDOW_HEIGHT - titleBarHeight - menuHeight, hwnd, NULL, hInstance, NULL);
-	   rightPanel = CreateWindowEx(WS_EX_CLIENTEDGE, RIGHTWC_NAME, NULL, WS_CHILD | WS_VISIBLE, (WINDOW_WIDTH / 2), 0, WINDOW_WIDTH / 2, WINDOW_HEIGHT - titleBarHeight - menuHeight, hwnd, NULL, hInstance, NULL);
+	   leftPanel = CreateWindowEx(WS_EX_CLIENTEDGE, LEFTWC_NAME, NULL, WS_CHILD | WS_VISIBLE | WS_VSCROLL, 0, 0, 320, WINDOW_HEIGHT - titleBarHeight - menuHeight, hwnd, NULL, hInstance, NULL);
+	   rightPanel = CreateWindowEx(WS_EX_CLIENTEDGE, RIGHTWC_NAME, NULL, WS_CHILD | WS_VISIBLE, 320, 0, 480, WINDOW_HEIGHT - titleBarHeight - menuHeight, hwnd, NULL, hInstance, NULL);
 	   ShowWindow(hwnd, nCmdShow);
 	   UpdateWindow(hwnd);
 
@@ -560,24 +682,4 @@ int APIENTRY _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCm
 	   }
 
 	   return 0;
-}
-
-BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
-{
-   HWND hwnd;
-
-   hInst = hInstance; // Store instance handle in our global variable
-
-   hwnd = CreateWindow(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
-      0, 0, 640, 480, NULL, NULL, hInstance, NULL);
-
-   if (!hwnd)
-   {
-      return FALSE;
-   }
-
-   ShowWindow(hwnd, nCmdShow);
-   UpdateWindow(hwnd);
-
-   return TRUE;
 }

@@ -35,12 +35,33 @@ extern short int selected_build;
 
 extern short int theme;
 
+// Create a font
+HFONT hFont = CreateFont(
+    20,                        // Height of font
+    0,                         // Average character width
+    0,                         // Angle of escapement
+    0,                         // Base-line orientation angle
+    FW_DONTCARE,               // Font weight
+    FALSE,                     // Italic attribute option
+    FALSE,                     // Underline attribute option
+    FALSE,                     // Strikeout attribute option
+    DEFAULT_CHARSET,           // Character set identifier
+    OUT_DEFAULT_PRECIS,        // Output precision
+    CLIP_DEFAULT_PRECIS,       // Clipping precision
+    DEFAULT_QUALITY,           // Output quality
+    DEFAULT_PITCH | FF_DONTCARE, // Pitch and family
+    L"Trebuchet MS");          // Font name
+
+
 void draw(HDC hdc, HWND hwnd, PAINTSTRUCT ps)
 {
 	// Add the Trebuchet MS font
 	AddTTFFile(IDR_BINARY1);
 
 	hdc = BeginPaint(hwnd, &ps);
+
+	SelectObject(hdc, hFont);
+
 	if (theme == DARK_MODE) {
 		//dark mode
 		LeftSideBrush = CreateSolidBrush(RGB(44, 44, 58));
@@ -63,6 +84,22 @@ void draw(HDC hdc, HWND hwnd, PAINTSTRUCT ps)
         //Fill the rectangle with the grey brush
         FillRect(hdc, &leftsiderect, LeftSideBrush);
 		
+		int totalHeight = builds.size() * 32;
+
+		// Set the vertical scroll bar range and page size
+		SCROLLINFO si;
+		ZeroMemory(&si, sizeof(si));
+		si.cbSize = sizeof(si);
+		si.fMask  = SIF_RANGE | SIF_PAGE;
+		si.nMin   = 0;
+		si.nMax   = totalHeight + 64;
+		si.nPage  = 480; // Set this to the height of your client area
+		SetScrollInfo(hwnd, SB_VERT, &si, TRUE);
+
+		// Get the vertical scroll position		
+		int scrollPos = GetScrollPos(hwnd, SB_VERT); 
+
+
 		if (builds.size() == 0) {
 			SetBkMode(hdc, TRANSPARENT);
 			DrawTextW(hdc, L"There are no builds at the moment. \n Why not add some?", -1 /*null terminated*/, &leftsiderect, DT_CENTER | DT_VCENTER);
@@ -73,9 +110,9 @@ void draw(HDC hdc, HWND hwnd, PAINTSTRUCT ps)
 			//Iterate through all of the builds in the builds vector and draw a square containing the build name of each one
 			for(size_t i = 0; i < builds.size(); i++) {
 				buildrect.left = 0;
-				buildrect.top = i * 32;
+				buildrect.top = i * 32 - scrollPos;
 				buildrect.right = leftsiderect.right; // Half the window's width
-				buildrect.bottom = 32 + (i * 32); // Fixed height
+				buildrect.bottom = (32 + (i * 32)) - scrollPos; // Fixed height
 
 				if (i != selected_build) {
 					// Every second build, slightly darken the brush
@@ -92,10 +129,11 @@ void draw(HDC hdc, HWND hwnd, PAINTSTRUCT ps)
 					FillRect(hdc, &buildrect, SelectedBuildBrush);
 				}
 				SetBkMode(hdc, TRANSPARENT);
-				DrawTextW(hdc, (builds[i].name).c_str(), -1 /*null terminated*/, &buildrect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+				DrawTextW(hdc, (builds[i].name).c_str(), -1 /*null terminated*/, &buildrect, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
 				SetBkMode(hdc, OPAQUE);
 			}
 		 }
 		EndPaint(hwnd, &ps);
+
 		return;
 }
